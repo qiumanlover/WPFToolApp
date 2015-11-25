@@ -5,7 +5,7 @@ using System.Data;
 using System.Linq;
 using System.Windows;
 
-namespace NPOITester
+namespace ChangeName
 {
     /// <summary>
     /// App.xaml 的交互逻辑

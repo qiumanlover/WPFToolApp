@@ -4,6 +4,7 @@ using NPOI.XSSF.UserModel;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -66,7 +67,7 @@ namespace MyTool
             {
                 throw new Exception($"parameter {nameof(array)} can not be null");
             }
-            this.WorkbookFromStringArray(array);
+            this.WorkbookFromArray(array);
             InitData();
         }
 
@@ -80,7 +81,7 @@ namespace MyTool
             InitData();
         }
 
-        public ExcelHelper(Dictionary<int, Dictionary<int, string>> dic)
+        public ExcelHelper(Dictionary<int, Dictionary<int, object>> dic)
         {
             if (dic == null)
             {
@@ -115,10 +116,25 @@ namespace MyTool
         {
             startRow = startRow < this.FirstRowNum ? this.FirstRowNum : startRow;
             startColumn = startColumn < this.FirstColumnNum ? this.FirstColumnNum : startColumn;
-            if (startRow >= this.LastRowNum || startColumn >= this.LastColumnNum)
+        }
+
+        private string GetCellString(int rowNum, int columnNum)
+        {
+            return this.Sheet.GetRow(rowNum)?.GetCell(columnNum)?.ToString() ?? "";
+        }
+
+        private void SetCellValue(int rowNum, int columnNum, object value)
+        {
+            if (this.Sheet.GetRow(rowNum) == null)
             {
-                throw new Exception($"start point ({startRow}, {startColumn}) is not in range");
+                this.Sheet.CreateRow(rowNum);
             }
+            if (this.Sheet.GetRow(rowNum).GetCell(columnNum) == null)
+            {
+                this.Sheet.GetRow(rowNum).CreateCell(columnNum, CellType.String);
+            }
+            this.Sheet.GetRow(rowNum).GetCell(columnNum).SetCellType(CellType.String);
+            this.Sheet.GetRow(rowNum).GetCell(columnNum).SetCellValue(value?.ToString() ?? "");
         }
 
         private void WorkbookFromDataTable(DataTable dt, bool columnNameAsFirstRow)
@@ -148,7 +164,7 @@ namespace MyTool
             }
         }
 
-        private void WorkbookFromStringArray(string[][] array)
+        private void WorkbookFromArray(object[][] array)
         {
             if (array == null)
             {
@@ -161,12 +177,12 @@ namespace MyTool
                 IRow row = this.Sheet.CreateRow(i);
                 for (int j = 0; j < array[i].Length; j++)
                 {
-                    row.CreateCell(j, CellType.String).SetCellValue(array[i][j] ?? "");
+                    row.CreateCell(j, CellType.String).SetCellValue(array[i][j]?.ToString() ?? "");
                 }
             }
         }
 
-        private void WorkbookFromDictionary(Dictionary<int, Dictionary<int, string>> dic)
+        private void WorkbookFromDictionary(Dictionary<int, Dictionary<int, object>> dic)
         {
             if (dic == null)
             {
@@ -180,7 +196,7 @@ namespace MyTool
                 IRow row = this.Sheet.CreateRow(i);
                 for (int j = 0; j < dic[i].Keys.Count; j++)
                 {
-                    row.CreateCell(j, CellType.String).SetCellValue(dic[i][j] ?? "");
+                    row.CreateCell(j, CellType.String).SetCellValue(dic[i][j]?.ToString() ?? "");
                 }
             }
         }
@@ -197,7 +213,7 @@ namespace MyTool
             {
                 DataColumn column = new DataColumn();
                 column.DataType = Type.GetType("System.String");
-                column.ColumnName = firstRowAsColumnName ? FirstRow.GetCell(i)?.ToString() ?? "" : i.ToString();
+                column.ColumnName = firstRowAsColumnName ? this.FirstRow.GetCell(i)?.ToString() ?? "" : i.ToString();
                 dt.Columns.Add(column);
             }
             for (int i = startRow; i < endRow; i++)
@@ -205,7 +221,7 @@ namespace MyTool
                 DataRow dr = dt.NewRow();
                 for (int j = startColumn; j < endColumn; j++)
                 {
-                    dr[j] = Sheet.GetRow(i)?.GetCell(j)?.ToString() ?? "";
+                    dr[j - startColumn] = this.GetCellString(i, j);
                 }
                 dt.Rows.Add(dr);
             }
@@ -225,7 +241,7 @@ namespace MyTool
                 array[i] = new string[endColumn - startColumn];
                 for (int j = startColumn; j < endColumn; j++)
                 {
-                    array[i][j] = Sheet.GetRow(i)?.GetCell(j)?.ToString() ?? "";
+                    array[i - startRow][j - startColumn] = this.GetCellString(i, j);
                 }
             }
             return array;
@@ -244,13 +260,24 @@ namespace MyTool
                 dic.Add(i, new Dictionary<int, string>(endColumn - startColumn));
                 for (int j = startColumn; j < endColumn; j++)
                 {
-                    dic[i].Add(j, this.Sheet.GetRow(i)?.GetCell(j)?.ToString() ?? "");
+                    dic[i].Add(j, this.GetCellString(i, j));
                 }
             }
             return dic;
         }
 
-        private void UpdateFromDataTable(DataTable dt, int startRow, int startColumn)
+        private string[] GetColumnRange(int columnNum, int startRow, int endRow)
+        {
+            CheckBegin(ref startRow, ref columnNum);
+            string[] arr = new string[endRow - startRow];
+            for (int i = startRow; i < endRow; i++)
+            {
+                arr[i - startRow] = this.GetCellString(i, columnNum);
+            }
+            return arr;
+        }
+
+        private void SetValueFromDataTable(DataTable dt, int startRow, int startColumn)
         {
             if (dt == null)
             {
@@ -261,22 +288,13 @@ namespace MyTool
             {
                 for (int j = 0; j < dt.Columns.Count; j++)
                 {
-                    if (this.Sheet.GetRow(i + startRow) == null)
-                    {
-                        this.Sheet.CreateRow(i + startRow);
-                    }
-                    if (this.Sheet.GetRow(i + startRow).GetCell(j + startColumn) == null)
-                    {
-                        this.Sheet.GetRow(i + startRow).CreateCell(j + startColumn, CellType.String);
-                    }
-                    this.Sheet.GetRow(i + startRow).GetCell(j + startColumn).SetCellType(CellType.String);
-                    this.Sheet.GetRow(i + startRow).GetCell(j + startColumn).SetCellValue(dt.Rows[i][j]?.ToString() ?? "");
+                    this.SetCellValue(i + startRow, j + startColumn, dt.Rows[i][j]);
                 }
             }
             InitData();
         }
 
-        private void UpdateFromArray(string[][] array, int startRow, int startColumn)
+        private void SetValueFromArray(object[][] array, int startRow, int startColumn)
         {
             if (array == null)
             {
@@ -287,64 +305,39 @@ namespace MyTool
             {
                 for (int j = 0; j < array[i].Length; j++)
                 {
-                    if (this.Sheet.GetRow(i + startRow) == null)
-                    {
-                        this.Sheet.CreateRow(i + startRow);
-                    }
-                    if (this.Sheet.GetRow(i + startRow).GetCell(j + startColumn) == null)
-                    {
-                        this.Sheet.GetRow(i + startRow).CreateCell(j + startColumn, CellType.String);
-                    }
-                    this.Sheet.GetRow(i + startRow).GetCell(j + startColumn).SetCellType(CellType.String);
-                    this.Sheet.GetRow(i + startRow).GetCell(j + startColumn).SetCellValue(array[i][j] ?? "");
+                    this.SetCellValue(i + startRow, j + startColumn, array[i][j]);
                 }
             }
             InitData();
         }
 
-        private void UpdateFromDictionary(Dictionary<int, Dictionary<int, string>> dic)
+        private void SetValueFromDictionary(Dictionary<int, Dictionary<int, object>> dic)
         {
             if (dic == null)
             {
-                throw new Exception("parameter dic can not be null");
+                throw new Exception($"parameter {nameof(dic)} can not be null");
             }
-            foreach (KeyValuePair<int, Dictionary<int, string>> outerPair in dic)
+            foreach (KeyValuePair<int, Dictionary<int, object>> outerPair in dic)
             {
-                foreach (KeyValuePair<int, string> innerPair in outerPair.Value)
+                foreach (KeyValuePair<int, object> innerPair in outerPair.Value)
                 {
-                    if (this.Sheet.GetRow(outerPair.Key) == null)
-                    {
-                        this.Sheet.CreateRow(outerPair.Key);
-                    }
-                    if (this.Sheet.GetRow(outerPair.Key).GetCell(innerPair.Key) == null)
-                    {
-                        this.Sheet.GetRow(outerPair.Key).CreateCell(innerPair.Key, CellType.String);
-                    }
-                    this.Sheet.GetRow(outerPair.Key).GetCell(innerPair.Key).SetCellType(CellType.String);
-                    this.Sheet.GetRow(outerPair.Key).GetCell(innerPair.Key).SetCellValue(innerPair.Value ?? "");
+                    this.SetCellValue(outerPair.Key, innerPair.Key, innerPair.Value);
                 }
             }
             InitData();
         }
 
-        private string[] GetRowRange(int rowIndex, int startColumn, int endColumn)
+        private void SetColumnRange(object[] arr, int columnNum, int startRow)
         {
-            string[] arr = new string[endColumn - startColumn];
-            for (int i = startColumn; i < endColumn; i++)
+            if (arr == null)
             {
-                arr[i] = this.Sheet.GetRow(rowIndex)?.GetCell(i)?.ToString() ?? "";
+                throw new Exception($"parameter {nameof(arr)} can not be null");
             }
-            return arr;
-        }
-
-        private string[] GetColumnRange(int columnIndex, int startRow, int endRow)
-        {
-            string[] arr = new string[endRow - startRow];
-            for (int i = startRow; i < endRow; i++)
+            CheckBegin(ref startRow, ref columnNum);
+            for (int i = 0; i < arr.Length; i++)
             {
-                arr[i] = this.Sheet.GetRow(i)?.GetCell(columnIndex)?.ToString() ?? "";
+                this.SetCellValue(i + startRow, columnNum, arr[i]);
             }
-            return arr;
         }
 
         private void SaveToDisk(string savePath, bool overwrite)
@@ -353,13 +346,17 @@ namespace MyTool
             {
                 throw new Exception("parameter savePath can not be null");
             }
-            if (overwrite)
-            {
-                File.Delete(savePath);
-            }
             if (File.Exists(savePath))
             {
-                throw new Exception($"this file \"{savePath}\" is already exists in the directory");
+                if (overwrite)
+                {
+                    Debug.Print(savePath);
+                    File.Delete(savePath);
+                }
+                else
+                {
+                    throw new Exception($"this file \"{savePath}\" is already exists in the directory");
+                }
             }
             FileStream stream = null;
             try
@@ -386,73 +383,21 @@ namespace MyTool
             return ms;
         }
 
-        private string GetCellString(int rowNum, int columnNum)
-        {
-            return this.Sheet.GetRow(rowNum)?.GetCell(columnNum)?.ToString() ?? "";
-        }
-
-        private void UpdateCellValue(object value, int rowNum, int columnNum)
-        {
-            if (value == null)
-            {
-                throw new Exception("parameter value can not be null");
-            }
-            if (this.Sheet.GetRow(rowNum) == null)
-            {
-                this.Sheet.CreateRow(rowNum);
-            }
-            if (this.Sheet.GetRow(rowNum).GetCell(columnNum) == null)
-            {
-                this.Sheet.GetRow(rowNum).CreateCell(columnNum, CellType.String);
-                InitData();
-            }
-            this.Sheet.GetRow(rowNum).GetCell(columnNum).SetCellType(CellType.String);
-            this.Sheet.GetRow(rowNum).GetCell(columnNum).SetCellValue(value.ToString());
-        }
-
-        private void Insert(Dictionary<int, Dictionary<int, string>> dic)
-        {
-            if (dic == null)
-            {
-                throw new Exception("parameter dic can not be null");
-            }
-            foreach (KeyValuePair<int, Dictionary<int, string>> outerPair in dic)
-            {
-                if (this.Sheet.GetRow(outerPair.Key) == null)
-                {
-                    this.Sheet.CreateRow(outerPair.Key);
-                }
-                foreach (KeyValuePair<int, string> innerPair in outerPair.Value)
-                {
-                    if (this.Sheet.GetRow(outerPair.Key).GetCell(innerPair.Key) == null)
-                    {
-                        this.Sheet.GetRow(outerPair.Key).CreateCell(innerPair.Key, CellType.String).SetCellValue(innerPair.Value);
-                    }
-                    else
-                    {
-                        this.Sheet.GetRow(outerPair.Key).GetCell(innerPair.Key).SetCellType(CellType.String);
-                        this.Sheet.GetRow(outerPair.Key).GetCell(innerPair.Key).SetCellValue(innerPair.Value);
-                    }
-                }
-                InitData();
-            }
-        }
-
-        private void InsertRow(string[] arr)
+        private void InsertRow(object[] arr)
         {
             if (arr == null)
             {
-                throw new Exception("parameter arr can not be null");
+                throw new Exception($"parameter {nameof(arr)} can not be null");
             }
             this.Sheet.CreateRow(this.LastRowNum);
             for (int i = 0; i < arr.Length; i++)
             {
-                this.Sheet.GetRow(this.LastRowNum).CreateCell(this.FirstColumnNum + i, CellType.String).SetCellValue(arr[i]);
+                this.Sheet.GetRow(this.LastRowNum).CreateCell(this.FirstColumnNum + i, CellType.String).SetCellValue(arr[i]?.ToString() ?? "");
             }
             this.LastRowNum++;
         }
 
-        private void InsertColumn(string[] arr)
+        private void InsertColumn(object[] arr)
         {
             if (arr == null)
             {
@@ -460,7 +405,7 @@ namespace MyTool
             }
             for (int i = 0; i < arr.Length; i++)
             {
-                this.Sheet.GetRow(this.FirstRowNum + i)?.CreateCell(this.LastColumnNum, CellType.String).SetCellValue(arr[i]);
+                SetCellValue(this.FirstRowNum + i, this.LastColumnNum, arr[i]);
             }
             this.LastColumnNum++;
         }
@@ -536,32 +481,37 @@ namespace MyTool
 
         public string[] GetRow(int rowIndex)
         {
-            return this.GetRowRange(rowIndex, this.FirstColumnNum, this.LastColumnNum);
+            return this.WorkbookToArrray(rowIndex, rowIndex + 1, this.FirstColumnNum, this.LastColumnNum)[0];
         }
 
         public string[] GetRow(int rowIndex, int startColumn)
         {
-            return this.GetRowRange(rowIndex, startColumn, this.LastColumnNum);
+            return this.WorkbookToArrray(rowIndex, rowIndex + 1, startColumn, this.LastColumnNum)[0];
         }
 
         public string[] GetRow(int rowIndex, int startColumn, int endColumn)
         {
-            return this.GetRowRange(rowIndex, startColumn, endColumn);
+            return this.WorkbookToArrray(rowIndex, rowIndex + 1, startColumn, endColumn)[0];
+        }
+
+        public Dictionary<int, string> GetRowWithColumnIndex(int rowIndex)
+        {
+            return this.WorkbookToDictionary(rowIndex, rowIndex + 1, this.FirstColumnNum, this.LastColumnNum)[rowIndex];
         }
 
         public string[] GetColumn(int columnIndex)
         {
-            return this.GetRowRange(columnIndex, this.FirstRowNum, this.LastRowNum);
+            return this.GetColumnRange(columnIndex, this.FirstRowNum, this.LastRowNum);
         }
 
         public string[] GetColumn(int columnIndex, int startRow)
         {
-            return this.GetRowRange(columnIndex, startRow, this.LastRowNum);
+            return this.GetColumnRange(columnIndex, startRow, this.LastRowNum);
         }
 
         public string[] GetColumn(int columnIndex, int startRow, int endRow)
         {
-            return this.GetRowRange(columnIndex, startRow, endRow);
+            return this.GetColumnRange(columnIndex, startRow, endRow);
         }
 
         public string GetValue(int rowNum, int columnNum)
@@ -569,59 +519,85 @@ namespace MyTool
             return this.GetCellString(rowNum, columnNum);
         }
 
-        public void Update(Dictionary<int, Dictionary<int, string>> dic)
+        public void Update(Dictionary<int, Dictionary<int, object>> dic)
         {
-            this.UpdateFromDictionary(dic);
+            this.SetValueFromDictionary(dic);
         }
 
-        public void Update(string[][] array)
+        public void Update(object[][] array)
         {
-            this.UpdateFromArray(array, this.FirstRowNum, this.FirstColumnNum);
+            this.SetValueFromArray(array, this.FirstRowNum, this.FirstColumnNum);
         }
 
-        public void Update(string[][] array, int startRow, int startColumn)
+        public void Update(object[][] array, int startRow, int startColumn)
         {
-            this.UpdateFromArray(array, startRow, startColumn);
+            this.SetValueFromArray(array, startRow, startColumn);
         }
 
         public void Update(DataTable dt)
         {
-            this.UpdateFromDataTable(dt, this.FirstRowNum, this.FirstColumnNum);
+            this.SetValueFromDataTable(dt, this.FirstRowNum, this.FirstColumnNum);
         }
 
         public void Update(DataTable dt, int startRow, int startColumn)
         {
-            this.UpdateFromDataTable(dt, startRow, startColumn);
+            this.SetValueFromDataTable(dt, startRow, startColumn);
         }
 
-        public void Update(string[] arr, int rowNum)
+        public void Update(object[] arr, int rowNum)
         {
-            this.UpdateFromArray(new string[1][] { arr }, rowNum, this.FirstColumnNum);
+            this.SetValueFromArray(new object[1][] { arr }, rowNum, this.FirstColumnNum);
         }
 
-        public void Update(string[] arr, int columnNum, bool isColumn = true)
+        public void Update(object[] arr, int columnNum, bool isColumn)
         {
-            this.UpdateFromArray(new string[1, 1] { arr }, this.FirstRowNum, columnNum);
+            this.SetColumnRange(arr, this.FirstRowNum, columnNum);
+        }
+
+        public void Update(object[] arr, int columnNum, int startRow, bool isColumn)
+        {
+            this.SetColumnRange(arr, startRow, columnNum);
         }
 
         public void Update(object value, int row, int column)
         {
-            this.UpdateCellValue(value, row, column);
+            this.CheckBegin(ref row, ref column);
+            this.SetCellValue(row, column, value);
         }
 
-        public void Add(string[] arr)
+        public void AppendRow(object[] arr)
         {
             this.InsertRow(arr);
         }
 
-        public void Add(string[] arr, bool toColumn = true)
+        public void AppendColumn(string[] arr)
         {
             this.InsertColumn(arr);
         }
 
-        public void Add(Dictionary<int, Dictionary<int, string>> dic)
+        public void Add(Dictionary<int, Dictionary<int, object>> dic)
         {
-            this.Insert(dic);
+            this.SetValueFromDictionary(dic);
+        }
+
+        public void Add(object[][] array)
+        {
+            this.SetValueFromArray(array, this.FirstRowNum, this.FirstColumnNum);
+        }
+
+        public void Add(object[][] array, int startRow, int startColumn)
+        {
+            this.SetValueFromArray(array, startRow, startColumn);
+        }
+
+        public void Add(DataTable dt)
+        {
+            this.SetValueFromDataTable(dt, this.FirstRowNum, this.FirstColumnNum);
+        }
+
+        public void Add(DataTable dt, int startRow, int startColumn)
+        {
+            this.SetValueFromDataTable(dt, startRow, startColumn);
         }
 
         public void Save(string filePath, bool overwrite = false)

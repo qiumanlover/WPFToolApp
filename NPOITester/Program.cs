@@ -9,7 +9,7 @@ using System.Linq;
 using System.Text;
 using Tool;
 
-namespace NPOITester
+namespace ChangeName
 {
     class Program
     {

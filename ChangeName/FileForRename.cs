@@ -10,8 +10,8 @@ namespace ChangeName
     {
         internal string OldFilePath { get; set; }
         internal string OldFileName { get; set; }
-        internal string NewFileName { get; set; }
-        internal string NewFilePath { get; set; }
+        public string NewFileName { get; set; }
+        public string NewFilePath { get; set; }
         internal string FileDirPath { get; }
         internal string fileExt { get; }
 
@@ -21,7 +21,7 @@ namespace ChangeName
             this.OldFileName = Path.GetFileNameWithoutExtension(filePath);
             this.NewFileName = OldFileName;
             this.NewFilePath = OldFilePath;
-            this.FileDirPath = Path.GetFullPath(filePath);
+            this.FileDirPath = Path.GetDirectoryName(filePath);
             this.fileExt = Path.GetExtension(filePath);
         }
         internal bool needRename()
@@ -39,7 +39,7 @@ namespace ChangeName
             }
             catch (Exception)
             {
-                ResetInfo();
+                //ResetInfo();
                 return false;
             }
             
@@ -52,7 +52,7 @@ namespace ChangeName
         internal void ChangeName(string newFileName)
         {
             this.NewFileName = newFileName;
-            this.NewFilePath = Path.Combine(this.FileDirPath, newFileName, this.fileExt);
+            this.NewFilePath = Path.Combine(this.FileDirPath, newFileName + this.fileExt);
         }
     }
 }
