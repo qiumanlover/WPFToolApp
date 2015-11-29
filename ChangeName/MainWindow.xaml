@@ -40,8 +40,9 @@
                 <ListBox Name="lbFileList" Grid.Row="0" Grid.Column="0" DisplayMemberPath="NewFileName" SelectionMode="Extended" SelectedValuePath="NewFilePath" Margin="1,5,3,1" AllowDrop="True" PreviewDragOver="txtExcelSource_PreviewDrag" PreviewDragEnter="txtExcelSource_PreviewDrag" PreviewDrop="lbFileList_PreviewDrop" KeyUp="lbFileList_KeyUp"></ListBox>
                 <Grid Grid.Row="0" Grid.Column="1">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="5*"></RowDefinition>
-                        <RowDefinition Height="3*"></RowDefinition>
+                        <RowDefinition Height="4*"></RowDefinition>
+                        <RowDefinition Height="2*"></RowDefinition>
+                        <RowDefinition Height="2*"></RowDefinition>
                         <RowDefinition Height="2*"></RowDefinition>
                         <RowDefinition Height="2*"></RowDefinition>
                         <RowDefinition Height="2*"></RowDefinition>
@@ -50,8 +51,9 @@
                     <Button Name="btnRefresh" Grid.Row="0" Grid.Column="0" Margin="2,5,3,5" Content="刷新选择" Click="btnRefresh_Click"></Button>
                     <Button Name="btnReloadExcel" Grid.Row="1" Grid.Column="0" Margin="2,5,3,5" Content="重新加载Excel" Click="btnReloadExcel_Click"></Button>
                     <Button Name="btnChangeName" Grid.Row="2" Grid.Column="0" Margin="2,5,3,5" Content="改名" Click="btnChangeName_Click"></Button>
-                    <Button Name="btnSaveFile" Grid.Row="3" Grid.Column="0" Margin="2,5,3,5" Content="保存" Click="btnSaveFile_Click"></Button>
-                    <Grid Grid.Row="4" Grid.Column="0">
+                    <Button Name="btnUndo" Grid.Row="3" Grid.Column="0" Margin="2,5,3,5" Content="撤销" Click="btnUndo_Click"></Button>
+                    <Button Name="btnSaveFile" Grid.Row="4" Grid.Column="0" Margin="2,5,3,5" Content="保存" Click="btnSaveFile_Click"></Button>
+                    <Grid Grid.Row="5" Grid.Column="0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="6*"></ColumnDefinition>
                             <ColumnDefinition Width="4*"></ColumnDefinition>
@@ -59,7 +61,7 @@
                         <TextBox Name="txtNewTitle" Grid.Row="0" Grid.Column="0" Margin="2,8,3,8" FontSize="14" VerticalContentAlignment="Center" Text="新标题" HorizontalContentAlignment="Center"></TextBox>
                         <TextBox Name="txtMarkLabel" Grid.Row="0" Grid.Column="1" Margin="2,8,3,8" FontSize="22" VerticalContentAlignment="Center" Text="★" HorizontalContentAlignment="Center"></TextBox>
                     </Grid>
-                    <Button Name="btnMark" Grid.Row="5" Grid.Column="0" Margin="2,5,3,4" Content="标记" Click="btnMark_Click"></Button>
+                    <Button Name="btnMark" Grid.Row="6" Grid.Column="0" Margin="2,5,3,4" Content="标记" Click="btnMark_Click"></Button>
                 </Grid>
             </Grid>
         </Grid>

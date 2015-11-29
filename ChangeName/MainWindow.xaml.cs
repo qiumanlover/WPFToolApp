@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-//using System.Windows.Shapes;
 
 namespace ChangeName
 {
@@ -19,8 +19,8 @@ namespace ChangeName
         public ExcelHelper eh;
         private List<string> cfgList = new List<string>();
         private List<FileForRename> fileList = new List<FileForRename>();
-        private bool repeatKeyFlag;
-        private List<string> repeatKeyList = new List<string>(0);
+        private int keyIndex = -1, num1 = -1, num2 = -1, num3 = -1;
+        string[] arrKeys, arrName1, arrName2, arrName3;
         public MainWindow()
         {
             InitializeComponent();
@@ -33,13 +33,10 @@ namespace ChangeName
             {
                 this.cfgList.AddRange(File.ReadAllLines("config.txt", Encoding.Default));
             }
-            catch (FileNotFoundException)
-            {
-                ShowError("读取配置文件config.txt错误：文件可能不存在\r\n请立即修复配置文件，否则无法拖入文件");
-            }
             catch (Exception ex)
             {
-                this.Log(ex.ToString());
+                ShowError("读取配置文件config.txt错误：文件可能不存在\r\n修复配置文件后才能打开应用程序", ex);
+                Application.Current.Shutdown();
             }
         }
 
@@ -48,8 +45,9 @@ namespace ChangeName
             MessageBox.Show(this, msg, "提示", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
-        private void ShowError(string msg)
+        private void ShowError(string msg, Exception ex)
         {
+            this.Log(msg + "\r\n" + ex.ToString());
             MessageBox.Show(this, msg, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
 
@@ -74,56 +72,119 @@ namespace ChangeName
             object data = e.Data.GetData(DataFormats.FileDrop);
             TextBox box = sender as TextBox;
             box.Text = ((string[])data)[0];
+            ThreadPool.QueueUserWorkItem(new WaitCallback(InitTitle), box.Text);
             this.InitTitle(box.Text);
+            btnRefresh_Click(sender, e);
+            ResetCache();
+            new Thread(() => GC.Collect()).Start();
         }
 
-        private void InitTitle(string path)
+        private void InitTitle(object path)
         {
-            eh = new ExcelHelper(path);
-            cmbKeyToPair.ItemsSource = eh.GetRowWithColumnIndex(eh.FirstRowNum);
-            cmbKeyToPair.SelectedIndex = 0;
+            try
+            {
+                eh = new ExcelHelper(path.ToString());
+                this.cmbKeyToPair.Dispatcher.Invoke(new Action(() =>
+                {
+                    cmbKeyToPair.ItemsSource = eh.GetRowWithColumnIndex(eh.FirstRowNum);
+                    cmbKeyToPair.SelectedIndex = 0;
+                }));
+            }
+            catch (Exception ex)
+            {
+                eh = null;
+                this.cmbKeyToPair.Dispatcher.Invoke(new Action(() =>
+                {
+                    cmbKeyToPair.ItemsSource = null;
+                    cmbKeyToPair.SelectedIndex = -1;
+                }));
+                ShowError(ex.Message, ex);
+            }
         }
 
         private void btnReloadExcel_Click(object sender, RoutedEventArgs e)
         {
-            eh = new ExcelHelper(txtExcelSource.Text);
-            cmbKeyToPair.ItemsSource = eh.GetRowWithColumnIndex(eh.FirstRowNum);
-            cmbKeyToPair.SelectedIndex = 0;
+            if (txtExcelSource.Text.Equals("拖入Excel文件"))
+            {
+                ShowWarn("没有拖入Excel文件");
+                return;
+            }
+            InitTitle(txtExcelSource.Text);
             btnRefresh_Click(sender, e);
-            GC.Collect();
+            ResetCache();
+            new Thread(() => GC.Collect()).Start();
+        }
+
+        private void ResetCache()
+        {
+            this.keyIndex = -1;
+            this.num1 = -1;
+            this.num2 = -1;
+            this.num3 = -1;
+            this.arrKeys = null;
+            this.arrName1 = null;
+            this.arrName2 = null;
+            this.arrName3 = null;
         }
 
         private void lbFileList_PreviewDrop(object sender, DragEventArgs e)
         {
-            StringBuilder builder = new StringBuilder();
+            List<string> excludeFiles = new List<string>();
             string[] data = (string[])e.Data.GetData(DataFormats.FileDrop);
-            if ((data.Length == 1) & Directory.Exists(data[0]))
-            {
-                data = Directory.GetFiles(data[0]);
-            }
-            for (int i = 0; i < data.Length; i++)
-            {
-                if (this.cfgList.Contains(Path.GetExtension(data[i])))
-                {
-                    this.fileList.Add(new FileForRename(data[i]));
-                }
-                else
-                {
-                    builder.AppendLine(Path.GetFileName(data[i]));
-                }
-            }
+            List<string> files = this.GetAllFiles(data, this.cfgList, ref excludeFiles);
+            this.fileList.AddRange(from file in files select new FileForRename(file));
+
             this.lbFileList.ItemsSource = null;
             this.lbFileList.ItemsSource = this.fileList;
-            string str = builder.ToString();
-            if (!string.IsNullOrEmpty(str))
+            if (excludeFiles.Count > 0)
             {
+                string str = string.Join(", ", from excFile in excludeFiles select Path.GetFileName(excFile));
                 this.Log($"已排除的文件：\r\n{str}");
                 ShowWarn($"已排除以下文件\r\n\r\n{str}");
             }
-            builder.Clear();
-            builder = null;
-            str = null;
-            GC.Collect();
+            excludeFiles.Clear();
+            excludeFiles = null;
+            data = null;
+            new Thread(() => GC.Collect()).Start();
+        }
+
+        private List<string> GetAllFiles(string[] paths, List<string> extList, ref List<string> excludeFiles)
+        {
+            List<string> files = new List<string>();
+            List<string> folders = new List<string>();
+            List<string> subFolders = new List<string>();
+            foreach (string path in paths)
+            {
+                if (File.Exists(path))
+                {
+                    if (extList.Contains(Path.GetExtension(path)))
+                    {
+                        files.Add(path);
+                    }
+                    else
+                    {
+                        excludeFiles.Add(path);
+                    }
+                }
+                else
+                {
+                    folders.Add(path);
+                }
+            }
+            while (folders.Count > 0)
+            {
+                foreach (string folder in folders)
+                {
+                    files.AddRange(Directory.GetFiles(folder).Where(file => extList.Contains(Path.GetExtension(file))));
+                    excludeFiles.AddRange(Directory.GetFiles(folder).SkipWhile(file => extList.Contains(Path.GetExtension(file))));
+                    subFolders.AddRange(Directory.GetDirectories(folder));
+                }
+                folders.Clear();
+                folders.AddRange(subFolders);
+                subFolders.Clear();
+            }
+            new Thread(() => GC.Collect()).Start();
+            return files;
         }
 
         private void lbFileList_KeyUp(object sender, System.Windows.Input.KeyEventArgs e)
@@ -136,7 +197,7 @@ namespace ChangeName
                 }
                 this.lbFileList.ItemsSource = null;
                 this.lbFileList.ItemsSource = this.fileList;
-                GC.Collect();
+                new Thread(() => GC.Collect()).Start();
             }
         }
 
@@ -144,12 +205,12 @@ namespace ChangeName
         {
             if (eh == null)
             {
-                ShowError("Excel表格异常，没有工作表");
+                ShowWarn("Excel表格异常，没有工作表");
                 return false;
             }
             if (this.fileList.Count <= 0)
             {
-                ShowError("没有要匹配的文件");
+                ShowWarn("没有要匹配的文件");
                 return false;
             }
             return true;
@@ -167,65 +228,86 @@ namespace ChangeName
             int num3 = Convert.ToInt32(this.cmbName3.SelectedValue ?? -1);
             if (((num2 <= -1) && (num3 <= -1)) && (num1 <= -1))
             {
-                ShowError("至少选择一个标题作为新的文件名");
+                ShowWarn("至少选择一个标题作为新的文件名");
+                return;
             }
-            else
+            if (keyIndex != this.keyIndex)
             {
-                string[] arrKeys = eh.GetColumn(keyIndex, eh.FirstRowNum + 1);
-                string[] arrName1 = num1 <= -1 ? null : eh.GetColumn(num1, eh.FirstRowNum + 1);
-                string[] arrName2 = num2 <= -1 ? null : eh.GetColumn(num2, eh.FirstRowNum + 1);
-                string[] arrName3 = num3 <= -1 ? null : eh.GetColumn(num3, eh.FirstRowNum + 1);
-                string filter1 = txtFilter1.Text;
-                string filter2 = txtFilter2.Text;
-                repeatKeyList.AddRange(arrKeys.Except(arrKeys.Distinct()));
-                this.repeatKeyFlag = false;
-                StringBuilder builder = new StringBuilder(0);
-                foreach (var item in fileList)
+                this.arrKeys = eh.GetColumn(keyIndex, eh.FirstRowNum);
+                this.keyIndex = keyIndex;
+            }
+            if (num1 != this.num1)
+            {
+                this.arrName1 = num1 <= -1 ? null : eh.GetColumn(num1, eh.FirstRowNum);
+                this.num1 = num1;
+            }
+            if (num2 != this.num2)
+            {
+                this.arrName2 = num2 <= -1 ? null : eh.GetColumn(num2, eh.FirstRowNum);
+                this.num2 = num2;
+            }
+            if (num3 != this.num3)
+            {
+                this.arrName3 = num3 <= -1 ? null : eh.GetColumn(num3, eh.FirstRowNum);
+                this.num3 = num3;
+            }
+            string filter1 = txtFilter1.Text;
+            string filter2 = txtFilter2.Text;
+            List<string> repeatKeyList = new List<string>(0);
+            repeatKeyList.AddRange(this.arrKeys.Except(this.arrKeys.Distinct()));
+            bool repeatKeyFlag = false;
+            StringBuilder builder = new StringBuilder(0);
+            foreach (var item in fileList)
+            {
+                FileForRename file = item as FileForRename;
+                for (int i = 1; i < this.arrKeys.Length; i++)
                 {
-                    FileForRename file = item as FileForRename;
-                    for (int i = 0; i < arrKeys.Length; i++)
+                    if (file.NewFileName.ToUpper().Contains(this.arrKeys[i].ToUpper()))
                     {
-                        if (file.NewFileName.ToUpper().Contains(arrKeys[i].ToUpper()))
+                        if (!repeatKeyList.Contains(this.arrKeys[i]))
                         {
-                            if (!this.repeatKeyList.Contains(arrKeys[i]))
-                            {
-                                int rowIndex = eh.FirstRowNum + 1 + i;
-                                file.ChangeName($"{arrName1?[i] ?? ""}{filter1}{arrName2?[i] ?? ""}{filter2}{arrName3?[i] ?? ""}");
-                                break;
-                            }
-                            else
-                            {
-                                this.repeatKeyFlag = true;
-                                builder.AppendLine(arrKeys[i]);
-                                break;
-                            }
+                            int rowIndex = eh.FirstRowNum + i;
+                            file.ChangeName($"{arrName1?[i] ?? ""}{filter1}{arrName2?[i] ?? ""}{filter2}{arrName3?[i] ?? ""}");
+                            break;
+                        }
+                        else
+                        {
+                            repeatKeyFlag = true;
+                            builder.AppendLine(this.arrKeys[i]);
+                            break;
                         }
                     }
                 }
-                lbFileList.ItemsSource = null;
-                lbFileList.ItemsSource = fileList;
-                if (this.repeatKeyFlag)
-                {
-                    ShowWarn(string.Format("以下键在Excel表格中存在多个值，无法修改其文件名, 请修改Excel表格中的键\r\n{0}", builder.ToString()));
-                }
-                arrKeys = null;
-                arrName1 = null;
-                arrName2 = null;
-                arrName3 = null;
-                repeatKeyList.Clear();
-                GC.Collect();
             }
+            lbFileList.ItemsSource = null;
+            lbFileList.ItemsSource = fileList;
+            if (repeatKeyFlag)
+            {
+                ShowWarn(string.Format("以下键在Excel表格中存在多个值，无法修改其文件名, 请修改Excel表格中的键\r\n{0}", builder.ToString()));
+            }
+            repeatKeyList.Clear();
+            repeatKeyList = null;
+            new Thread(() => GC.Collect()).Start();
         }
 
         private void btnSaveFile_Click(object sender, RoutedEventArgs e)
         {
+            if (!FileIsOK())
+            {
+                return;
+            }
             StringBuilder sb = new StringBuilder(0);
             foreach (FileForRename file in fileList)
             {
                 if (file.needRename())
                 {
-                    if (!file.Rename())
+                    try
                     {
+                        file.Rename();
+                    }
+                    catch (Exception ex)
+                    {
+                        this.Log(ex.ToString());
                         sb.AppendLine($"{file.OldFileName} ---> {file.NewFileName}");
                     }
                 }
@@ -238,7 +320,8 @@ namespace ChangeName
             {
                 ShowMessage("保存成功");
             }
-            GC.Collect();
+            sb.Clear();
+            new Thread(() => GC.Collect()).Start();
         }
 
         private void btnRefresh_Click(object sender, RoutedEventArgs e)
@@ -255,7 +338,16 @@ namespace ChangeName
                 return;
             }
             int keyIndex = Convert.ToInt32(this.cmbKeyToPair.SelectedValue);
-            string[] arrKeys = eh.GetColumn(keyIndex);
+            string[] arrKeys;
+            if (keyIndex != this.keyIndex)
+            {
+                arrKeys = eh.GetColumn(keyIndex);
+            }
+            else
+            {
+                arrKeys = new string[this.arrKeys.Length];
+                this.arrKeys.CopyTo(arrKeys, 0);
+            }
             string markLabel = txtMarkLabel.Text;
             arrKeys[0] = txtNewTitle.Text;
             for (int i = 1; i < arrKeys.Length; i++)
@@ -272,7 +364,7 @@ namespace ChangeName
             }
             eh.AppendColumn(arrKeys);
             string savePath = txtExcelSource.Text;
-            var res = MessageBox.Show(this, "标记完成，请选择保存方式\r\n是 -- 覆盖原文件\r\n否 -- 生成新文件", "请选择", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            var res = MessageBox.Show(this, "标记完成，请选择保存方式\r\n\r\n是 -- 覆盖原文件\r\n否 -- 生成新文件", "请选择", MessageBoxButton.YesNo, MessageBoxImage.Question);
             try
             {
                 if (res == MessageBoxResult.Yes)
@@ -288,10 +380,36 @@ namespace ChangeName
             }
             catch (Exception ex)
             {
-                Log(ex.ToString());
-                ShowError("文件保存异常，请查看日志文件log.log");
+                ShowError("文件保存异常，请查看日志文件log.log", ex);
             }
-            GC.Collect();
+            new Thread(() => GC.Collect()).Start();
+        }
+
+        private void btnUndo_Click(object sender, RoutedEventArgs e)
+        {
+            var selectFiles = lbFileList.SelectedItems;
+            if (selectFiles.Count <= 0)
+            {
+                var result = MessageBox.Show(this, "全部撤销？", "提示", MessageBoxButton.YesNo);
+                if (result == MessageBoxResult.Yes)
+                {
+                    foreach (var item in this.fileList)
+                    {
+                        FileForRename file = item as FileForRename;
+                        file.ResetInfo();
+                    }
+                }
+            }
+            else
+            {
+                foreach (var item in selectFiles)
+                {
+                    FileForRename file = item as FileForRename;
+                    file.ResetInfo();
+                }
+            }            
+            lbFileList.ItemsSource = null;
+            lbFileList.ItemsSource = this.fileList;
         }
     }
 }

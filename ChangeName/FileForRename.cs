@@ -30,19 +30,10 @@ namespace ChangeName
         }
         internal bool Rename()
         {
-            try
-            {
-                File.Move(OldFilePath, this.NewFilePath);
-                this.OldFileName = this.NewFileName;
-                this.OldFilePath = this.NewFilePath;
-                return true;
-            }
-            catch (Exception)
-            {
-                //ResetInfo();
-                return false;
-            }
-            
+            File.Move(OldFilePath, this.NewFilePath);
+            this.OldFileName = this.NewFileName;
+            this.OldFilePath = this.NewFilePath;
+            return true;
         }
         internal void ResetInfo()
         {
