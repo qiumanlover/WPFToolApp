@@ -5,9 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ChangeName"
         mc:Ignorable="d"
-        Height="550" Width="450" Title="重命名标记" ResizeMode="CanMinimize" WindowStartupLocation="CenterScreen">
+        Height="550" Width="450" Title="重命名 - 标记" ResizeMode="CanMinimize" WindowStartupLocation="CenterScreen">
     <Grid>
-        <Grid ShowGridLines="False">
+        <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="1*"></RowDefinition>
                 <RowDefinition Height="1*"></RowDefinition>
@@ -17,8 +17,16 @@
                 <ColumnDefinition Width="12*"></ColumnDefinition>
                 <ColumnDefinition Width="4*"></ColumnDefinition>
             </Grid.ColumnDefinitions>
-            <TextBox Name="txtExcelSource" Grid.Row="0" Grid.Column="0" Margin="1,5,3,1" Text="拖入Excel文件" VerticalContentAlignment="Center" FontSize="14" FontStyle="Italic" IsReadOnly="True" PreviewDragOver="txtExcelSource_PreviewDrag" PreviewDragEnter="txtExcelSource_PreviewDrag" PreviewDrop="txtExcelSource_PreviewDrop"></TextBox>
-            <ComboBox Name="cmbKeyToPair" Grid.Row="0" Grid.Column="1" Margin="2,5,1,1" DisplayMemberPath="Value" SelectedValuePath="Key" VerticalContentAlignment="Center"></ComboBox>
+            <TextBox Name="txtExcelSource" Grid.Row="0" Grid.Column="0" Margin="1,5,3,1" VerticalContentAlignment="Center" FontSize="14" FontStyle="Italic" IsReadOnly="True" PreviewDragOver="txtExcelSource_PreviewDrag" PreviewDragEnter="txtExcelSource_PreviewDrag" PreviewDrop="txtExcelSource_PreviewDrop" Drop="txtExcelSource_Drop" MouseDoubleClick="txtExcelSource_MouseDoubleClick">
+                <TextBox.ToolTip>
+                    <TextBlock FontStyle="Italic">双击选择或拖入Excel文件</TextBlock>
+                </TextBox.ToolTip>
+            </TextBox>
+            <ComboBox Name="cmbKeyToPair" Grid.Row="0" Grid.Column="1" Margin="2,5,1,1" DisplayMemberPath="Value" SelectedValuePath="Key" VerticalContentAlignment="Center">
+                <ComboBox.ToolTip>
+                    <TextBlock FontStyle="Italic">用于比较的列</TextBlock>
+                </ComboBox.ToolTip>
+            </ComboBox>
             <Grid Grid.Row="1" Grid.Column="0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10*"></ColumnDefinition>
@@ -26,12 +34,32 @@
                     <ColumnDefinition Width="10*"></ColumnDefinition>
                     <ColumnDefinition Width="3*"></ColumnDefinition>
                 </Grid.ColumnDefinitions>
-                <ComboBox Name="cmbName1" Grid.Row="0" Grid.Column="0" Margin="1,5,3,1" DisplayMemberPath="Value" SelectedValuePath="Key" ItemsSource="{Binding ElementName=cmbKeyToPair, Path=ItemsSource, Mode=OneWay}" VerticalContentAlignment="Center"></ComboBox>
-                <TextBox Name="txtFilter1" Grid.Row="0" Grid.Column="1" Margin="1,6,1,4" VerticalContentAlignment="Center" FontSize="14"></TextBox>
-                <ComboBox Name="cmbName2" Grid.Row="0" Grid.Column="2" Margin="3,5,3,1" DisplayMemberPath="Value" SelectedValuePath="Key" ItemsSource="{Binding ElementName=cmbKeyToPair, Path=ItemsSource, Mode=OneWay}" VerticalContentAlignment="Center"></ComboBox>
-                <TextBox Name="txtFilter2" Grid.Row="0" Grid.Column="3" Margin="1,6,3,4" VerticalContentAlignment="Center" FontSize="14"></TextBox>
+                <ComboBox Name="cmbName1" Grid.Row="0" Grid.Column="0" Margin="1,5,3,1" DisplayMemberPath="Value" SelectedValuePath="Key" ItemsSource="{Binding ElementName=cmbKeyToPair, Path=ItemsSource, Mode=OneWay}" VerticalContentAlignment="Center">
+                    <ComboBox.ToolTip>
+                        <TextBlock FontStyle="Italic">新文件名1</TextBlock>
+                    </ComboBox.ToolTip>
+                </ComboBox>
+                <TextBox Name="txtFilter1" Grid.Row="0" Grid.Column="1" Margin="1,6,1,4" VerticalContentAlignment="Center" FontSize="14">
+                    <TextBox.ToolTip>
+                        <TextBlock FontStyle="Italic">分隔符1</TextBlock>
+                    </TextBox.ToolTip>
+                </TextBox>
+                <ComboBox Name="cmbName2" Grid.Row="0" Grid.Column="2" Margin="3,5,3,1" DisplayMemberPath="Value" SelectedValuePath="Key" ItemsSource="{Binding ElementName=cmbKeyToPair, Path=ItemsSource, Mode=OneWay}" VerticalContentAlignment="Center">
+                    <ComboBox.ToolTip>
+                        <TextBlock FontStyle="Italic">新文件名2</TextBlock>
+                    </ComboBox.ToolTip>
+                </ComboBox>
+                <TextBox Name="txtFilter2" Grid.Row="0" Grid.Column="3" Margin="1,6,3,4" VerticalContentAlignment="Center" FontSize="14">
+                    <TextBox.ToolTip>
+                        <TextBlock FontStyle="Italic">分隔符2</TextBlock>
+                    </TextBox.ToolTip>
+                </TextBox>
             </Grid>
-            <ComboBox Name="cmbName3" Grid.Row="1" Grid.Column="1" Margin="2,5,1,1" BorderThickness="1" DisplayMemberPath="Value" SelectedValuePath="Key" ItemsSource="{Binding ElementName=cmbKeyToPair, Path=ItemsSource, Mode=OneWay}" VerticalContentAlignment="Center"></ComboBox>
+            <ComboBox Name="cmbName3" Grid.Row="1" Grid.Column="1" Margin="2,5,1,1" BorderThickness="1" DisplayMemberPath="Value" SelectedValuePath="Key" ItemsSource="{Binding ElementName=cmbKeyToPair, Path=ItemsSource, Mode=OneWay}" VerticalContentAlignment="Center">
+                <ComboBox.ToolTip>
+                    <TextBlock FontStyle="Italic">新文件名3</TextBlock>
+                </ComboBox.ToolTip>
+            </ComboBox>
             <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10*"></ColumnDefinition>
@@ -58,8 +86,16 @@
                             <ColumnDefinition Width="6*"></ColumnDefinition>
                             <ColumnDefinition Width="4*"></ColumnDefinition>
                         </Grid.ColumnDefinitions>
-                        <TextBox Name="txtNewTitle" Grid.Row="0" Grid.Column="0" Margin="2,8,3,8" FontSize="14" VerticalContentAlignment="Center" Text="新标题" HorizontalContentAlignment="Center"></TextBox>
-                        <TextBox Name="txtMarkLabel" Grid.Row="0" Grid.Column="1" Margin="2,8,3,8" FontSize="22" VerticalContentAlignment="Center" Text="★" HorizontalContentAlignment="Center"></TextBox>
+                        <TextBox Name="txtNewTitle" Grid.Row="0" Grid.Column="0" Margin="2,8,3,8" FontSize="14" VerticalContentAlignment="Center" Text="新标题" HorizontalContentAlignment="Center">
+                            <TextBox.ToolTip>
+                                <TextBlock FontStyle="Italic">标记填充列</TextBlock>
+                            </TextBox.ToolTip>
+                        </TextBox>
+                        <TextBox Name="txtMarkLabel" Grid.Row="0" Grid.Column="1" Margin="2,8,3,8" FontSize="22" VerticalContentAlignment="Center" Text="★" HorizontalContentAlignment="Center">
+                            <TextBox.ToolTip>
+                                <TextBlock FontStyle="Italic">标记符号</TextBlock>
+                            </TextBox.ToolTip>
+                        </TextBox>
                     </Grid>
                     <Button Name="btnMark" Grid.Row="6" Grid.Column="0" Margin="2,5,3,4" Content="标记" Click="btnMark_Click"></Button>
                 </Grid>

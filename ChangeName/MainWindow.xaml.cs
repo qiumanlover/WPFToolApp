@@ -1,4 +1,5 @@
-﻿using MyTool;
+﻿using Microsoft.Win32;
+using MyTool;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -22,7 +23,7 @@ namespace ChangeName
         private int keyIndex = -1, num1 = -1, num2 = -1, num3 = -1;
         string[] arrKeys, arrName1, arrName2, arrName3;
         public MainWindow()
-        {
+        {            
             InitializeComponent();
             this.GetConfig();
         }
@@ -70,12 +71,51 @@ namespace ChangeName
         private void txtExcelSource_PreviewDrop(object sender, DragEventArgs e)
         {
             object data = e.Data.GetData(DataFormats.FileDrop);
-            TextBox box = sender as TextBox;
-            box.Text = ((string[])data)[0];
-            ThreadPool.QueueUserWorkItem(new WaitCallback(InitTitle), box.Text);
-            this.InitTitle(box.Text);
+            string path = ((string[])data)[0];
+            if (Path.GetExtension(path).Equals(".xls") || Path.GetExtension(path).Equals(".xlsx"))
+            {
+                (sender as TextBox).Text = path;
+            }
+            else
+            {
+                ShowMessage("该文件不是Excel文件");
+                e.Handled = true;
+                return;
+            }
+
+        }
+
+        private void txtExcelSource_Drop(object sender, DragEventArgs e)
+        {
+            ThreadPool.QueueUserWorkItem(new WaitCallback(InitTitle), txtExcelSource.Text);
             btnRefresh_Click(sender, e);
             ResetCache();
+            new Thread(() => GC.Collect()).Start();
+        }
+
+        private void txtExcelSource_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            OpenFileDialog dialog = new OpenFileDialog
+            {
+                Filter = "Excel文件|*.xls;*.xlsx"
+            };
+            TextBox box = sender as TextBox;
+            if (dialog.ShowDialog() == true)
+            {
+                box.Text = dialog.FileName;
+                try
+                {
+                    ThreadPool.QueueUserWorkItem(new WaitCallback(InitTitle), txtExcelSource.Text);
+                }
+                catch (Exception ex)
+                {
+                    ShowError("获取Excel标题失败", ex);
+                }
+                
+                btnRefresh_Click(sender, e);
+                ResetCache();
+            }
+            dialog = null;
             new Thread(() => GC.Collect()).Start();
         }
 
@@ -97,14 +137,19 @@ namespace ChangeName
                 {
                     cmbKeyToPair.ItemsSource = null;
                     cmbKeyToPair.SelectedIndex = -1;
+                    ShowError(ex.Message, ex);
                 }));
-                ShowError(ex.Message, ex);
+                ShowError("获取Excel标题失败", ex);
+            }
+            finally
+            {
+                GC.Collect();
             }
         }
 
         private void btnReloadExcel_Click(object sender, RoutedEventArgs e)
         {
-            if (txtExcelSource.Text.Equals("拖入Excel文件"))
+            if (string.IsNullOrEmpty(txtExcelSource.Text))
             {
                 ShowWarn("没有拖入Excel文件");
                 return;
@@ -407,7 +452,7 @@ namespace ChangeName
                     FileForRename file = item as FileForRename;
                     file.ResetInfo();
                 }
-            }            
+            }
             lbFileList.ItemsSource = null;
             lbFileList.ItemsSource = this.fileList;
         }

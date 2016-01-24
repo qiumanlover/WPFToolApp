@@ -277,6 +277,30 @@ namespace MyTool
             return arr;
         }
 
+        private string[][] GetColumnByIndexs(int startRow, int endRow, int[] indexs)
+        {
+            string[][] arr = new string[endRow - startRow][];
+            for (int i = this.FirstRowNum; i < this.LastRowNum; i++)
+            {
+                arr[i] = new string[indexs.Length];
+                for (int j = 0; j < indexs.Length; i++)
+                {
+                    arr[i - this.FirstRowNum][j] = this.GetCellString(i, indexs[j]);
+                }
+            }
+            return arr;
+        }
+
+        private string[][] GetRowByIndexs(int startColumn, int endColumn, int[] indexs)
+        {
+            string[][] arr = new string[indexs.Length][];
+            for (int i = 0; i < indexs.Length; i++)
+            {
+                arr[i] = this.WorkbookToArrray(indexs[i], indexs[i] + 1, startColumn, endColumn)[0];
+            }
+            return arr;
+        }
+
         private void SetValueFromDataTable(DataTable dt, int startRow, int startColumn)
         {
             if (dt == null)
@@ -494,6 +518,11 @@ namespace MyTool
             return this.WorkbookToArrray(rowIndex, rowIndex + 1, startColumn, endColumn)[0];
         }
 
+        public string[][] GetRows(int startColumn, int endColumn, int[] rowIndexs)
+        {
+            return this.GetRowByIndexs(startColumn, endColumn, rowIndexs);
+        }
+
         public Dictionary<int, string> GetRowWithColumnIndex(int rowIndex)
         {
             return this.WorkbookToDictionary(rowIndex, rowIndex + 1, this.FirstColumnNum, this.LastColumnNum)[rowIndex];
@@ -512,6 +541,11 @@ namespace MyTool
         public string[] GetColumn(int columnIndex, int startRow, int endRow)
         {
             return this.GetColumnRange(columnIndex, startRow, endRow);
+        }
+
+        public string[][] GetColumns(int startRow, int endRow, int[] columnIndexs)
+        {
+            return this.GetColumnByIndexs(startRow, endRow, columnIndexs);
         }
 
         public string GetValue(int rowNum, int columnNum)
