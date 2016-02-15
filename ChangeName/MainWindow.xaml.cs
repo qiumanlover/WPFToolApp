@@ -378,6 +378,7 @@ namespace ChangeName
 
         private void btnMark_Click(object sender, RoutedEventArgs e)
         {
+            new OfficeHelper.ExcelOLEHelper().ReadExcel();
             if (!this.FileIsOK())
             {
                 return;

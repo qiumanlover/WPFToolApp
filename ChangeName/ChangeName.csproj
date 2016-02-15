@@ -153,6 +153,10 @@
       <Project>{c564f525-2ead-4248-8764-8e9f79e5e24c}</Project>
       <Name>MyTool</Name>
     </ProjectReference>
+    <ProjectReference Include="..\OfficeHelper\OfficeHelper.csproj">
+      <Project>{d325bd6d-3530-4a19-9e5a-aa19795dc2b7}</Project>
+      <Name>OfficeHelper</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Resource Include="rename.ico" />
